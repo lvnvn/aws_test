@@ -55,3 +55,22 @@ resource "aws_iam_role" "python_lambda_role" {
 }
 EOF
 }
+
+resource "aws_dynamodb_table" "mood-dynamodb-table" {
+	name           = "Mood"
+	billing_mode   = "PROVISIONED"
+	read_capacity  = 2
+	write_capacity = 2
+	hash_key       = "Email"
+	range_key      = "EntryId"
+
+	attribute {
+		name = "Email"
+		type = "S"
+	}
+
+	attribute {
+		name = "EntryId"
+		type = "N"
+	}
+}
