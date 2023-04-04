@@ -74,3 +74,36 @@ resource "aws_dynamodb_table" "mood-dynamodb-table" {
 		type = "N"
 	}
 }
+
+resource "aws_apigatewayv2_api" "mood_api" {
+	name          = "mood_http_api"
+	protocol_type = "HTTP"
+	body = jsonencode({
+		openapi = "3.0.1"
+		info = {
+			title   = "mood"
+			version = "1.0"
+		}
+		paths = {
+			"/mood" = {
+				get = {
+					x-amazon-apigateway-integration = {
+						httpMethod           = "GET"
+						payloadFormatVersion = "1.0"
+						type                 = "aws_proxy"
+						uri                  = "https://arn:aws:apigateway:us-east-1:lambda"
+					}
+				}
+			}
+		}
+	})
+	target        = aws_lambda_function.mypython_lambda.arn
+}
+
+resource "aws_lambda_permission" "api_lambda_permission" {
+	action        = "lambda:InvokeFunction"
+	function_name = aws_lambda_function.mypython_lambda.arn
+	principal     = "apigateway.amazonaws.com"
+
+	source_arn = "${aws_apigatewayv2_api.mood_api.execution_arn}/*/*"
+}
