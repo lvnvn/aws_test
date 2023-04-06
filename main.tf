@@ -62,7 +62,7 @@ resource "aws_dynamodb_table" "mood-dynamodb-table" {
 	read_capacity  = 2
 	write_capacity = 2
 	hash_key       = "Email"
-	range_key      = "EntryId"
+	range_key      = "Datetime"
 
 	attribute {
 		name = "Email"
@@ -70,9 +70,23 @@ resource "aws_dynamodb_table" "mood-dynamodb-table" {
 	}
 
 	attribute {
-		name = "EntryId"
-		type = "N"
+		name = "Datetime"
+		type = "S"
 	}
+}
+
+resource "aws_iam_role_policy" "python_lambda_dynamodb" {
+  role = aws_iam_role.python_lambda_role.name
+
+  policy = jsonencode({
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": ["dynamodb:*"],
+        "Resource": [aws_dynamodb_table.mood-dynamodb-table.arn],
+      },
+    ],
+  })
 }
 
 resource "aws_apigatewayv2_api" "mood_api" {
