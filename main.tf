@@ -92,26 +92,29 @@ resource "aws_iam_role_policy" "python_lambda_dynamodb" {
 resource "aws_apigatewayv2_api" "mood_api" {
 	name          = "mood_http_api"
 	protocol_type = "HTTP"
-	body = jsonencode({
-		openapi = "3.0.1"
-		info = {
-			title   = "mood"
-			version = "1.0"
-		}
-		paths = {
-			"/mood" = {
-				get = {
-					x-amazon-apigateway-integration = {
-						httpMethod           = "GET"
-						payloadFormatVersion = "1.0"
-						type                 = "aws_proxy"
-						uri                  = "https://arn:aws:apigateway:us-east-1:lambda"
-					}
-				}
-			}
-		}
-	})
-	target        = aws_lambda_function.mypython_lambda.arn
+}
+
+resource "aws_apigatewayv2_integration" "mood_integration" {
+  api_id           = aws_apigatewayv2_api.mood_api.id
+  integration_type = "AWS_PROXY"
+
+  connection_type           = "INTERNET"
+  description               = "Lambda example"
+  integration_method        = "POST"
+  integration_uri           = aws_lambda_function.mypython_lambda.invoke_arn
+  passthrough_behavior      = "WHEN_NO_MATCH"
+}
+
+resource "aws_apigatewayv2_route" "mood_route" {
+  api_id    = aws_apigatewayv2_api.mood_api.id
+  route_key = "$default"
+  target = "integrations/${aws_apigatewayv2_integration.mood_integration.id}"
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id = aws_apigatewayv2_api.mood_api.id
+  name        = "$default"
+  auto_deploy = true
 }
 
 resource "aws_lambda_permission" "api_lambda_permission" {
