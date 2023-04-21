@@ -89,6 +89,61 @@ resource "aws_iam_role_policy" "python_lambda_dynamodb" {
   })
 }
 
+resource "aws_iam_role" "api_gateway_role" {
+  name = "gateway_role"
+  assume_role_policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "",
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : [
+            "apigateway.amazonaws.com"
+          ]
+        },
+        "Action" : "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "api_gateway_lambda" {
+  role = aws_iam_role.api_gateway_role.name
+
+  policy = jsonencode({
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : "lambda:InvokeFunction",
+        "Resource" : "*"
+      },
+    ],
+  })
+}
+
+resource "aws_iam_role_policy" "api_gateway_cloudwatch" {
+  role = aws_iam_role.api_gateway_role.name
+
+  policy = jsonencode({
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:PutLogEvents",
+          "logs:GetLogEvents",
+          "logs:FilterLogEvents"
+        ],
+        "Resource" : "*"
+      },
+    ],
+  })
+}
+
 resource "aws_apigatewayv2_api" "mood_api" {
   name          = "mood_http_api"
   protocol_type = "HTTP"
@@ -111,10 +166,20 @@ resource "aws_apigatewayv2_route" "mood_route" {
   target    = "integrations/${aws_apigatewayv2_integration.mood_integration.id}"
 }
 
+resource "aws_cloudwatch_log_group" "api_gateway_logs" {
+  name              = "api_gateway_logs_${aws_apigatewayv2_api.mood_api.id}"
+  retention_in_days = 7
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.mood_api.id
   name        = "$default"
   auto_deploy = true
+  depends_on  = [aws_cloudwatch_log_group.api_gateway_logs]
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway_logs.arn
+    format          = "$context.extendedRequestId $context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] $context.httpMethod $context.resourcePath $context.protocol $context.status $context.responseLength $context.requestId"
+  }
 }
 
 resource "aws_lambda_permission" "api_lambda_permission" {
