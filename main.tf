@@ -36,24 +36,44 @@ resource "aws_lambda_function" "mypython_lambda" {
 }
 
 resource "aws_iam_role" "python_lambda_role" {
-  name               = "python_role"
-  assume_role_policy = <<EOF
-{
-	"Version": "2012-10-17",
-	"Statement": [
-		{
-			"Sid": "",
-			"Effect": "Allow",
-			"Principal": {
-				"Service": [
-					"lambda.amazonaws.com"
-				]
-			},
-			"Action": "sts:AssumeRole"
-		}
-	]
+  name = "python_role"
+  assume_role_policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "",
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : [
+            "lambda.amazonaws.com"
+          ]
+        },
+        "Action" : "sts:AssumeRole"
+      }
+    ]
+  })
 }
-EOF
+
+resource "aws_iam_role_policy" "lambda_cloudwatch" {
+  role = aws_iam_role.python_lambda_role.name
+
+  policy = jsonencode({
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:PutLogEvents",
+          "logs:GetLogEvents",
+          "logs:FilterLogEvents"
+        ],
+        "Resource" : "*"
+      },
+    ],
+  })
 }
 
 resource "aws_dynamodb_table" "mood-dynamodb-table" {
