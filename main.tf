@@ -20,18 +20,33 @@ provider "aws" {
   shared_credentials_files = ["$HOME/.aws/credentials"]
 }
 
-data "archive_file" "lambda_zip" {
+data "archive_file" "lambda_get_zip" {
   type        = "zip"
-  source_file = "main.py"
-  output_path = "main.zip"
+  source_file = "get_mood.py"
+  output_path = "get_mood.zip"
 }
 
-resource "aws_lambda_function" "mypython_lambda" {
-  filename         = "main.zip"
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-  function_name    = "python_lambda_test"
+resource "aws_lambda_function" "get_mood_lambda" {
+  filename         = "get_mood.zip"
+  source_code_hash = data.archive_file.lambda_get_zip.output_base64sha256
+  function_name    = "python_lambda_get"
   role             = aws_iam_role.python_lambda_role.arn
-  handler          = "main.lambda_handler"
+  handler          = "get_mood.lambda_handler"
+  runtime          = "python3.8"
+}
+
+data "archive_file" "lambda_post_zip" {
+  type        = "zip"
+  source_file = "post_mood.py"
+  output_path = "post_mood.zip"
+}
+
+resource "aws_lambda_function" "post_mood_lambda" {
+  filename         = "post_mood.zip"
+  source_code_hash = data.archive_file.lambda_post_zip.output_base64sha256
+  function_name    = "python_lambda_post"
+  role             = aws_iam_role.python_lambda_role.arn
+  handler          = "post_mood.lambda_handler"
   runtime          = "python3.8"
 }
 
@@ -169,21 +184,38 @@ resource "aws_apigatewayv2_api" "mood_api" {
   protocol_type = "HTTP"
 }
 
-resource "aws_apigatewayv2_integration" "mood_integration" {
+resource "aws_apigatewayv2_integration" "mood_get_integration" {
   api_id           = aws_apigatewayv2_api.mood_api.id
   integration_type = "AWS_PROXY"
 
   connection_type      = "INTERNET"
-  description          = "Lambda example"
+  description          = "dynamodb read mood"
   integration_method   = "POST"
-  integration_uri      = aws_lambda_function.mypython_lambda.invoke_arn
+  integration_uri      = aws_lambda_function.get_mood_lambda.invoke_arn
   passthrough_behavior = "WHEN_NO_MATCH"
 }
 
-resource "aws_apigatewayv2_route" "mood_route" {
+resource "aws_apigatewayv2_integration" "mood_post_integration" {
+  api_id           = aws_apigatewayv2_api.mood_api.id
+  integration_type = "AWS_PROXY"
+
+  connection_type      = "INTERNET"
+  description          = "dynamodb write mood"
+  integration_method   = "POST"
+  integration_uri      = aws_lambda_function.post_mood_lambda.invoke_arn
+  passthrough_behavior = "WHEN_NO_MATCH"
+}
+
+resource "aws_apigatewayv2_route" "mood_get_route" {
   api_id    = aws_apigatewayv2_api.mood_api.id
-  route_key = "$default"
-  target    = "integrations/${aws_apigatewayv2_integration.mood_integration.id}"
+  route_key = "GET /mood"
+  target    = "integrations/${aws_apigatewayv2_integration.mood_get_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "mood_post_route" {
+  api_id    = aws_apigatewayv2_api.mood_api.id
+  route_key = "POST /mood"
+  target    = "integrations/${aws_apigatewayv2_integration.mood_post_integration.id}"
 }
 
 resource "aws_cloudwatch_log_group" "api_gateway_logs" {
@@ -202,9 +234,17 @@ resource "aws_apigatewayv2_stage" "default" {
   }
 }
 
-resource "aws_lambda_permission" "api_lambda_permission" {
+resource "aws_lambda_permission" "api_get_lambda_permission" {
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.mypython_lambda.arn
+  function_name = aws_lambda_function.get_mood_lambda.arn
+  principal     = "apigateway.amazonaws.com"
+
+  source_arn = "${aws_apigatewayv2_api.mood_api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "api_post_lambda_permission" {
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.post_mood_lambda.arn
   principal     = "apigateway.amazonaws.com"
 
   source_arn = "${aws_apigatewayv2_api.mood_api.execution_arn}/*/*"
