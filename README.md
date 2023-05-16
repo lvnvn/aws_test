@@ -21,7 +21,7 @@ Sample REST API using AWS services configured with terraform.
 ##### Example cURL
 
 ```plaintext
-curl -X POST -d '{"mood":"happy","email":"user1@gmail.com"}' "https://232n1x2q39.execute-api.us-east-1.amazonaws.com/mood"
+curl -H 'Content-Type: application/json' -X POST -d '{"mood":"happy","email":"user1@gmail.com"}' "https://232n1x2q39.execute-api.us-east-1.amazonaws.com/mood"
 ```
 
 ---
