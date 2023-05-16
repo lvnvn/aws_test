@@ -97,7 +97,7 @@ resource "aws_dynamodb_table" "mood-dynamodb-table" {
   read_capacity  = 2
   write_capacity = 2
   hash_key       = "Email"
-  range_key      = "Datetime"
+  range_key      = "EntryTime"
 
   attribute {
     name = "Email"
@@ -105,7 +105,7 @@ resource "aws_dynamodb_table" "mood-dynamodb-table" {
   }
 
   attribute {
-    name = "Datetime"
+    name = "EntryTime"
     type = "S"
   }
 }

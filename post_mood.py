@@ -1,15 +1,24 @@
 import boto3
 import datetime
 import json
+from json.decoder import JSONDecodeError
 
 client = boto3.client("dynamodb")
 
 
 def lambda_handler(event, context):
 	body = {}
-	if b := event.get("body"):
-		body = json.loads(b)
+	if json_body := event.get("body"):
+		try:
+			body = json.loads(json_body)
+		except JSONDecodeError as e:
+			return {
+				"statusCode": 400,
+				"body": f"JSONDecodeError in ({json_body}): {e}",
+			}
+
 	mood = body.get("mood") #  TODO: type validation
+	email = body.get("email") #  TODO: type validation
 
 	if not mood:
 		return {
@@ -21,8 +30,8 @@ def lambda_handler(event, context):
 	client.put_item(
 		TableName="Mood",
 		Item={
-			"Email": {"S": "123abc@gmail.com"},
-			"Datetime": {"S": current_time},
+			"Email": {"S": email},
+			"EntryTime": {"S": current_time},
 			"Mood": {"S": mood},
 		}
 	)
